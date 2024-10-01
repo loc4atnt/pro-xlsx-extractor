@@ -1,0 +1,14 @@
+{
+  "name": "pro-xlsx-extractor",
+  "version": "1.0.0",
+  "description": "Extract xlsx to JSON by a schema",
+  "main": "./src/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "loc4atnt",
+  "license": "ISC",
+  "dependencies": {
+    "exceljs": "^4.4.0"
+  }
+}
