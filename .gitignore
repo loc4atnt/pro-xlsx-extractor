@@ -39,3 +39,5 @@ jspm_packages/
 *.ntvs*
 *.njsproj
 *.sln
+
+*.xlsx

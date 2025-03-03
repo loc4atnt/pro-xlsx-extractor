@@ -15,7 +15,7 @@ const fs = require('fs');
             {
                 "key": "<cell address>",
                 "data": "<cell address>",
-                "type": "value"/"table",
+                "type": "value"/"table"/"array",
                 "has_key": true/false, // if the "key" is a key for the value
             }
         ]
@@ -23,7 +23,7 @@ const fs = require('fs');
 */
 
 const extract = async (buffer, schema=[]) => {
-    let result = [];
+    let result = {};
 
     try {
         const wb = new ExcelJS.Workbook();
@@ -34,7 +34,6 @@ const extract = async (buffer, schema=[]) => {
             const sheetSchema = schema[index];
             if (!sheetSchema) return;
 
-            let sheetResult = {};
             const tables = Object.values(sheet.tables);
             for (let j = 0; j < sheetSchema.length; j++) {
                 const schemaElement = sheetSchema[j];
@@ -46,26 +45,47 @@ const extract = async (buffer, schema=[]) => {
                 if (schemaElement.type === 'table') {
                     const table = tables.find(table => table.table.tableRef.startsWith(`${schemaElement.data}:`));
                     if (table) {
+                        const rowsKey = schemaElement.row_keys;
                         const ref = table.table.tableRef;
                         const [startAddr,endAddr] = ref.split(':').map(addr => colCache.decodeEx(addr));
                         let rows = [];
                         for (let r = startAddr.row; r <= endAddr.row; r++) {
-                            let row = [];
+                            let row = rowsKey ? {} : [];
+                            let cIndex = 0;
                             for (let c = startAddr.col; c <= endAddr.col; c++) {
                                 const cell = sheet.findCell(r, c);
-                                row.push(typeof cell.value === 'object' ? cell.value.result : cell.value);
+                                const cellRes = cell.value ? (typeof cell.value === 'object' ? (cell.value.result || cell.value.text) : cell.value) : '';
+                                //
+                                if (rowsKey) {
+                                    if (rowsKey[cIndex]) {
+                                        row[rowsKey[cIndex]] = cellRes;
+                                    }
+                                } else {
+                                    row.push(cellRes);
+                                }
+                                //
+                                cIndex++;
                             }
                             rows.push(row);
                         }
-                        sheetResult[key] = rows;
+                        result[key] = rows;
                     }
+                } else if (schemaElement.type === 'array') {
+                    const cell = sheet.findCell(schemaElement.data);
+                    const cellRes = cell.value ? (typeof cell.value === 'object' ? (cell.value.result || cell.value.text) : cell.value) : '';
+                    // last array
+                    let lastArray = result[key] || [];
+                    if (Array.isArray(lastArray)) {
+                        lastArray.push(cellRes);
+                    }
+                    result[key] = lastArray;
                 } else {// value type
                     const cell = sheet.findCell(schemaElement.data);
-                    sheetResult[key] = cell.value;
+                    const cellRes = cell.value ? (typeof cell.value === 'object' ? (cell.value.result || cell.value.text) : cell.value) : '';
+                    result[key] = cellRes;
                 }
             }
 
-            result.push(sheetResult);
             index++;
         });
     } catch (error) {
@@ -77,7 +97,7 @@ const extract = async (buffer, schema=[]) => {
 };
 
 const extractFromFile = async (filePath, schema=[]) => {
-    const buffer = fs.readFileSync(path.resolve(__dirname, 'API.xlsx'));
+    const buffer = fs.readFileSync(path.resolve(__dirname, filePath));
     return await extract(buffer, schema);
 };
 
