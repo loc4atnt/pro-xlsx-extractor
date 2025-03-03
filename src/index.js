@@ -15,8 +15,10 @@ const fs = require('fs');
             {
                 "key": "<cell address>",
                 "data": "<cell address>",
-                "type": "value"/"table"/"array",
+                "type": "value"/"table"/"array"/"object",
                 "has_key": true/false, // if the "key" is a key for the value
+                "object_key": "<cell address>", // if type is object, then this is the key for the object
+                "row_keys": [<string>, <string>, ...] // if type is table, then this is the keys for the row
             }
         ]
     ]
@@ -79,6 +81,20 @@ const extract = async (buffer, schema=[]) => {
                         lastArray.push(cellRes);
                     }
                     result[key] = lastArray;
+                } else if (schemaElement.type === 'object') {
+                    const cell = sheet.findCell(schemaElement.data);
+                    const cellRes = cell.value ? (typeof cell.value === 'object' ? (cell.value.result || cell.value.text) : cell.value) : '';
+                    //
+                    const objKeyCell = sheet.findCell(schemaElement.object_key);
+                    const objKeyCellRes = objKeyCell.value ? (typeof objKeyCell.value === 'object' ? (objKeyCell.value.result || objKeyCell.value.text) : objKeyCell.value) : '';
+                    //
+                    if (objKeyCellRes) {
+                        let lastObj = result[key] || {};
+                        if (typeof lastObj === 'object') {
+                            lastObj[objKeyCellRes] = cellRes;
+                        }
+                        result[key] = lastObj;
+                    }
                 } else {// value type
                     const cell = sheet.findCell(schemaElement.data);
                     const cellRes = cell.value ? (typeof cell.value === 'object' ? (cell.value.result || cell.value.text) : cell.value) : '';
