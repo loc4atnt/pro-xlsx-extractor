@@ -24,6 +24,11 @@ const fs = require('fs');
     ]
 */
 
+const extractResultFromCell = (cell, defaultValue) => {
+    const rawVal = cell?.value ? (typeof cell.value === 'object' ? (cell.value.result || cell.value.text) : cell.value) : '';
+    return rawVal || defaultValue;
+};
+
 const extract = async (buffer, schema=[]) => {
     let result = {};
 
@@ -44,6 +49,8 @@ const extract = async (buffer, schema=[]) => {
                 let key = schemaElement.has_key ? schemaElement.key : sheet.findCell(schemaElement.key);
                 if (!key) continue;
                 //
+                const defaultValue = schemaElement.default_value === undefined ? '' : schemaElement.default_value;
+                //
                 if (schemaElement.type === 'table') {
                     const table = tables.find(table => table.table.tableRef.startsWith(`${schemaElement.data}:`));
                     if (table) {
@@ -56,7 +63,7 @@ const extract = async (buffer, schema=[]) => {
                             let cIndex = 0;
                             for (let c = startAddr.col; c <= endAddr.col; c++) {
                                 const cell = sheet.findCell(r, c);
-                                const cellRes = cell.value ? (typeof cell.value === 'object' ? (cell.value.result || cell.value.text) : cell.value) : '';
+                                const cellRes = extractResultFromCell(cell, defaultValue);
                                 //
                                 if (rowsKey) {
                                     if (rowsKey[cIndex]) {
@@ -74,7 +81,7 @@ const extract = async (buffer, schema=[]) => {
                     }
                 } else if (schemaElement.type === 'array') {
                     const cell = sheet.findCell(schemaElement.data);
-                    const cellRes = cell.value ? (typeof cell.value === 'object' ? (cell.value.result || cell.value.text) : cell.value) : '';
+                    const cellRes = extractResultFromCell(cell, defaultValue);
                     // last array
                     let lastArray = result[key] || [];
                     if (Array.isArray(lastArray)) {
@@ -83,10 +90,10 @@ const extract = async (buffer, schema=[]) => {
                     result[key] = lastArray;
                 } else if (schemaElement.type === 'object') {
                     const cell = sheet.findCell(schemaElement.data);
-                    const cellRes = cell.value ? (typeof cell.value === 'object' ? (cell.value.result || cell.value.text) : cell.value) : '';
+                    const cellRes = extractResultFromCell(cell, defaultValue);
                     //
                     const objKeyCell = sheet.findCell(schemaElement.object_key);
-                    const objKeyCellRes = objKeyCell.value ? (typeof objKeyCell.value === 'object' ? (objKeyCell.value.result || objKeyCell.value.text) : objKeyCell.value) : '';
+                    const objKeyCellRes = extractResultFromCell(objKeyCell, defaultValue);
                     //
                     if (objKeyCellRes) {
                         let lastObj = result[key] || {};
